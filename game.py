@@ -14,36 +14,88 @@ class GameState:
         else:
             self.turn = "ai"
 
-        self.history = set()
-        self.save_state()
+        self.turn_count = 0
+        self.max_turns = 100
 
     def copy(self):
         return copy.deepcopy(self)
 
-    def save_state(self):
-        state = (
-            tuple(self.player),
-            tuple(self.ai),
-            self.turn
-        )
+    def get_resulting_state(self, move):
+        if move.move_type == "attack":
+            if move.source not in (0, 1):
+                return None
 
-        self.history.add(state)
+            if move.target not in (0, 1):
+                return None
 
-    def state_exists(self, player, ai, turn):
-        state = (
-            tuple(player),
-            tuple(ai),
-            turn
-        )
+            if self.turn == "player":
+                attacker = self.player
+                target = self.ai
+            else:
+                attacker = self.ai
+                target = self.player
 
-        return state in self.history
+            if attacker[move.source] == 0:
+                return None
 
-    def get_state(self):
-        return (
-            tuple(self.player),
-            tuple(self.ai),
-            self.turn
-        )
+            if target[move.target] == 0:
+                return None
+
+            new_value = target[move.target] + attacker[move.source]
+
+            if new_value >= 5:
+                new_value = 0
+
+            if self.turn == "player":
+                new_player = list(self.player)
+                new_ai = list(self.ai)
+                new_ai[move.target] = new_value
+            else:
+                new_player = list(self.player)
+                new_ai = list(self.ai)
+                new_player[move.target] = new_value
+
+            return (
+                tuple(new_player),
+                tuple(new_ai)
+            )
+
+        if move.move_type == "split":
+            if move.new_hands is None:
+                return None
+
+            left_num, right_num = move.new_hands
+
+            if left_num < 0 or left_num > 4:
+                return None
+
+            if right_num < 0 or right_num > 4:
+                return None
+
+            if self.turn == "player":
+                hands = self.player
+            else:
+                hands = self.ai
+
+            if hands[0] + hands[1] != left_num + right_num:
+                return None
+
+            if hands == [left_num, right_num]:
+                return None
+
+            if self.turn == "player":
+                new_player = [left_num, right_num]
+                new_ai = list(self.ai)
+            else:
+                new_player = list(self.player)
+                new_ai = [left_num, right_num]
+
+            return (
+                tuple(new_player),
+                tuple(new_ai)
+            )
+
+        return None
 
     def get_legal_moves(self):
         moves = []
@@ -61,25 +113,6 @@ class GameState:
                     continue
 
                 if target[target_hand] == 0:
-                    continue
-
-                new_value = target[target_hand] + attacker[attack_hand]
-
-                if new_value >= 5:
-                    new_value = 0
-
-                if self.turn == "player":
-                    new_player = list(self.player)
-                    new_ai = list(self.ai)
-                    new_ai[target_hand] = new_value
-                    new_turn = "ai"
-                else:
-                    new_player = list(self.player)
-                    new_ai = list(self.ai)
-                    new_player[target_hand] = new_value
-                    new_turn = "player"
-
-                if self.state_exists(new_player, new_ai, new_turn):
                     continue
 
                 moves.append(
@@ -101,18 +134,6 @@ class GameState:
             if [left, right] == attacker:
                 continue
 
-            if self.turn == "player":
-                new_player = [left, right]
-                new_ai = list(self.ai)
-                new_turn = "ai"
-            else:
-                new_player = list(self.player)
-                new_ai = [left, right]
-                new_turn = "player"
-
-            if self.state_exists(new_player, new_ai, new_turn):
-                continue
-
             moves.append(
                 Move(
                     "split",
@@ -131,6 +152,9 @@ class GameState:
 
         return None
 
+    def is_draw(self):
+        return self.turn_count >= self.max_turns and self.get_winner() is None
+
     def switch_turns(self):
         if self.turn == "player":
             self.turn = "ai"
@@ -138,100 +162,54 @@ class GameState:
             self.turn = "player"
 
     def attack_on_turn(self, attack_hand, target_hand):
-        if self.turn == "player":
-            attacker = self.player
-            target = self.ai
-        else:
-            attacker = self.ai
-            target = self.player
+        move = Move(
+            "attack",
+            source=attack_hand,
+            target=target_hand
+        )
 
-        if attack_hand not in (0, 1):
-            return False
+        state = self.get_resulting_state(move)
 
-        if target_hand not in (0, 1):
-            return False
-
-        if attacker[attack_hand] == 0:
-            return False
-
-        if target[target_hand] == 0:
-            return False
-
-        new_value = target[target_hand] + attacker[attack_hand]
-
-        if new_value >= 5:
-            new_value = 0
-
-        if self.turn == "player":
-            new_player = list(self.player)
-            new_ai = list(self.ai)
-            new_ai[target_hand] = new_value
-            new_turn = "ai"
-        else:
-            new_player = list(self.player)
-            new_ai = list(self.ai)
-            new_player[target_hand] = new_value
-            new_turn = "player"
-
-        if self.state_exists(new_player, new_ai, new_turn):
+        if state is None:
             return False
 
         if self.turn == "player":
-            self.ai[target_hand] = new_value
+            self.ai[target_hand] = state[1][target_hand]
         else:
-            self.player[target_hand] = new_value
+            self.player[target_hand] = state[0][target_hand]
 
+        self.turn_count += 1
         self.switch_turns()
-        self.save_state()
 
         return True
 
     def split(self, left_num, right_num):
-        if left_num < 0 or left_num > 4:
-            return False
+        move = Move(
+            "split",
+            new_hands=(left_num, right_num)
+        )
 
-        if right_num < 0 or right_num > 4:
-            return False
+        state = self.get_resulting_state(move)
 
-        if self.turn == "player":
-            hands = self.player
-        else:
-            hands = self.ai
-
-        total_before = hands[0] + hands[1]
-        total_after = left_num + right_num
-
-        if total_before != total_after:
-            return False
-
-        if hands == [left_num, right_num]:
+        if state is None:
             return False
 
         if self.turn == "player":
-            new_player = [left_num, right_num]
-            new_ai = list(self.ai)
-            new_turn = "ai"
+            self.player = [left_num, right_num]
         else:
-            new_player = list(self.player)
-            new_ai = [left_num, right_num]
-            new_turn = "player"
+            self.ai = [left_num, right_num]
 
-        if self.state_exists(new_player, new_ai, new_turn):
-            return False
-
-        if self.turn == "player":
-            self.player = new_player
-        else:
-            self.ai = new_ai
-
+        self.turn_count += 1
         self.switch_turns()
-        self.save_state()
 
         return True
 
     def apply_move(self, move):
         if move.move_type == "attack":
-            return self.attack_on_turn(move.source, move.target)
+            return self.attack_on_turn(
+                move.source,
+                move.target
+            )
 
         if move.move_type == "split":
             return self.split(

@@ -1,3 +1,5 @@
+import random
+
 class AI:
 
     def __init__(self, side="ai", depth=1):
@@ -5,7 +7,17 @@ class AI:
             raise ValueError("side must be 'player' or 'ai'")
 
         self.side = side
-        self.depth = depth
+
+        if depth == 1:
+            self.difficulty = "easy"
+            self.depth = 0
+        elif depth == 2:
+            self.difficulty = "medium"
+            self.depth = 2
+        else:
+            self.difficulty = "hard"
+            self.depth = 4
+
         self.nodes_searched = 0
 
     def choose_move(self, game):
@@ -16,8 +28,11 @@ class AI:
         if not moves:
             return None
 
-        best_move = None
+        if self.difficulty == "easy":
+            return random.choice(moves)
+
         best_score = float("-inf")
+        best_moves = []
 
         alpha = float("-inf")
         beta = float("inf")
@@ -30,18 +45,23 @@ class AI:
 
             score = self.alpha_beta(
                 new_game,
-                self.depth,
+                self.depth - 1,
                 alpha,
                 beta
             )
 
             if score > best_score:
                 best_score = score
-                best_move = move
+                best_moves = [move]
+            elif score == best_score:
+                best_moves.append(move)
 
             alpha = max(alpha, best_score)
 
-        return best_move
+        if not best_moves:
+            return None
+
+        return random.choice(best_moves)
 
     def minimax(self, game, depth):
         self.nodes_searched += 1
@@ -65,8 +85,15 @@ class AI:
                 if not new_game.apply_move(move):
                     continue
 
-                score = self.minimax(new_game, depth - 1)
-                best_score = max(best_score, score)
+                score = self.minimax(
+                    new_game,
+                    depth - 1
+                )
+
+                best_score = max(
+                    best_score,
+                    score
+                )
 
             return best_score
 
@@ -78,8 +105,15 @@ class AI:
             if not new_game.apply_move(move):
                 continue
 
-            score = self.minimax(new_game, depth - 1)
-            best_score = min(best_score, score)
+            score = self.minimax(
+                new_game,
+                depth - 1
+            )
+
+            best_score = min(
+                best_score,
+                score
+            )
 
         return best_score
 
@@ -112,8 +146,15 @@ class AI:
                     beta
                 )
 
-                best_score = max(best_score, score)
-                alpha = max(alpha, best_score)
+                best_score = max(
+                    best_score,
+                    score
+                )
+
+                alpha = max(
+                    alpha,
+                    best_score
+                )
 
                 if beta <= alpha:
                     break
@@ -135,8 +176,15 @@ class AI:
                 beta
             )
 
-            best_score = min(best_score, score)
-            beta = min(beta, best_score)
+            best_score = min(
+                best_score,
+                score
+            )
+
+            beta = min(
+                beta,
+                best_score
+            )
 
             if beta <= alpha:
                 break
@@ -155,24 +203,24 @@ class AI:
             return -1000
 
         if self.side == "ai":
-            ai_hands = game.ai
-            player_hands = game.player
+            my_hands = game.ai
+            other_hands = game.player
         else:
-            ai_hands = game.ai
-            player_hands = game.player
-
-        if self.side == "ai":
-            my_hands = ai_hands
-            other_hands = player_hands
-        else:
-            my_hands = player_hands
-            other_hands = ai_hands
+            my_hands = game.player
+            other_hands = game.ai
 
         my_total = my_hands[0] + my_hands[1]
         other_total = other_hands[0] + other_hands[1]
 
-        my_alive = sum(1 for hand in my_hands if hand > 0)
-        other_alive = sum(1 for hand in other_hands if hand > 0)
+        my_alive = sum(
+            1 for hand in my_hands
+            if hand > 0
+        )
+
+        other_alive = sum(
+            1 for hand in other_hands
+            if hand > 0
+        )
 
         my_kills = self.count_kill_opportunities(
             my_hands,
