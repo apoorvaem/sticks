@@ -1,4 +1,6 @@
+import copy
 import random
+
 from move import Move
 
 class GameState:
@@ -14,6 +16,9 @@ class GameState:
 
         self.history = set()
         self.save_state()
+
+    def copy(self):
+        return copy.deepcopy(self)
 
     def save_state(self):
         state = (
@@ -52,32 +57,26 @@ class GameState:
 
         for attack_hand in range(2):
             for target_hand in range(2):
-
                 if attacker[attack_hand] == 0:
                     continue
 
                 if target[target_hand] == 0:
                     continue
 
-                new_target_value = (
-                    target[target_hand] + attacker[attack_hand]
-                )
+                new_value = target[target_hand] + attacker[attack_hand]
 
-                if new_target_value >= 5:
-                    new_target_value = 0
+                if new_value >= 5:
+                    new_value = 0
 
                 if self.turn == "player":
                     new_player = list(self.player)
                     new_ai = list(self.ai)
-
-                    new_ai[target_hand] = new_target_value
+                    new_ai[target_hand] = new_value
                     new_turn = "ai"
-
                 else:
                     new_player = list(self.player)
                     new_ai = list(self.ai)
-
-                    new_player[target_hand] = new_target_value
+                    new_player[target_hand] = new_value
                     new_turn = "player"
 
                 if self.state_exists(new_player, new_ai, new_turn):
@@ -106,7 +105,6 @@ class GameState:
                 new_player = [left, right]
                 new_ai = list(self.ai)
                 new_turn = "ai"
-
             else:
                 new_player = list(self.player)
                 new_ai = [left, right]
@@ -140,7 +138,6 @@ class GameState:
             self.turn = "player"
 
     def attack_on_turn(self, attack_hand, target_hand):
-
         if self.turn == "player":
             attacker = self.player
             target = self.ai
@@ -160,32 +157,29 @@ class GameState:
         if target[target_hand] == 0:
             return False
 
-        new_target_value = target[target_hand] + attacker[attack_hand]
+        new_value = target[target_hand] + attacker[attack_hand]
 
-        if new_target_value >= 5:
-            new_target_value = 0
+        if new_value >= 5:
+            new_value = 0
 
         if self.turn == "player":
             new_player = list(self.player)
             new_ai = list(self.ai)
-
-            new_ai[target_hand] = new_target_value
+            new_ai[target_hand] = new_value
             new_turn = "ai"
-
         else:
             new_player = list(self.player)
             new_ai = list(self.ai)
-
-            new_player[target_hand] = new_target_value
+            new_player[target_hand] = new_value
             new_turn = "player"
 
         if self.state_exists(new_player, new_ai, new_turn):
             return False
 
         if self.turn == "player":
-            self.ai[target_hand] = new_target_value
+            self.ai[target_hand] = new_value
         else:
-            self.player[target_hand] = new_target_value
+            self.player[target_hand] = new_value
 
         self.switch_turns()
         self.save_state()
@@ -193,7 +187,6 @@ class GameState:
         return True
 
     def split(self, left_num, right_num):
-
         if left_num < 0 or left_num > 4:
             return False
 
@@ -218,7 +211,6 @@ class GameState:
             new_player = [left_num, right_num]
             new_ai = list(self.ai)
             new_turn = "ai"
-
         else:
             new_player = list(self.player)
             new_ai = [left_num, right_num]
@@ -236,3 +228,15 @@ class GameState:
         self.save_state()
 
         return True
+
+    def apply_move(self, move):
+        if move.move_type == "attack":
+            return self.attack_on_turn(move.source, move.target)
+
+        if move.move_type == "split":
+            return self.split(
+                move.new_hands[0],
+                move.new_hands[1]
+            )
+
+        return False
