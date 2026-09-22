@@ -181,6 +181,21 @@ with hands_module.Hands(
             2
         )
 
+        if left_count is not None and right_count is not None:
+            status = "READY"
+        else:
+            status = "WAITING"
+
+        cv2.putText(
+            frame,
+            status,
+            (20, 190),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            (50, 255, 100),
+            2
+        )
+
         cv2.imshow(
             "Sticks Finger Counting",
             frame
