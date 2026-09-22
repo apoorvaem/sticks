@@ -33,6 +33,15 @@ if not camera.isOpened():
 
 time.sleep(1)
 
+left_count = None
+right_count = None
+
+left_previous = None
+right_previous = None
+
+left_stable = 0
+right_stable = 0
+
 with hands_module.Hands(
     max_num_hands=2,
     min_detection_confidence=0.5,
@@ -55,6 +64,16 @@ with hands_module.Hands(
 
         result = hands.process(rgb)
 
+        hand_values = {
+            "Left": left_count,
+            "Right": right_count
+        }
+
+        detected_hands = {
+            "Left": False,
+            "Right": False
+        }
+
         if result.multi_hand_landmarks:
 
             for i, (hand, side_info) in enumerate(
@@ -69,6 +88,36 @@ with hands_module.Hands(
                 count = count_fingers(
                     hand,
                     side
+                )
+
+                detected_hands[side] = True
+
+                if side == "Left":
+
+                    if count == left_previous:
+                        left_stable += 1
+                    else:
+                        left_previous = count
+                        left_stable = 1
+
+                    if left_stable >= 5:
+                        left_count = count
+
+                else:
+
+                    if count == right_previous:
+                        right_stable += 1
+                    else:
+                        right_previous = count
+                        right_stable = 1
+
+                    if right_stable >= 5:
+                        right_count = count
+
+                hand_values[side] = (
+                    left_count
+                    if side == "Left"
+                    else right_count
                 )
 
                 point_style = draw.DrawingSpec(
@@ -90,27 +139,10 @@ with hands_module.Hands(
                     line_style
                 )
 
-                text = f"{side} hand: {count}"
-
-                size, _ = cv2.getTextSize(
-                    text,
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    2
-                )
-
-                text_width, text_height = size
+                text = f"{side} hand: {hand_values[side]}"
 
                 x = 20
                 y = 50 + i * 50
-
-                cv2.rectangle(
-                    frame,
-                    (x - 5, y - text_height - 8),
-                    (x + text_width + 5, y + 8),
-                    (255, 255, 255),
-                    -1
-                )
 
                 cv2.putText(
                     frame,
@@ -118,9 +150,36 @@ with hands_module.Hands(
                     (x, y),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     1,
-                    (0, 0, 0),
+                    (255, 255, 255),
                     2
                 )
+
+        if not detected_hands["Left"]:
+            left_previous = None
+            left_stable = 0
+            left_count = None
+
+        if not detected_hands["Right"]:
+            right_previous = None
+            right_stable = 0
+            right_count = None
+
+        game_hands = [
+            left_count,
+            right_count
+        ]
+
+        game_text = f"Game state: {game_hands}"
+
+        cv2.putText(
+            frame,
+            game_text,
+            (20, 150),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            (50, 255, 100),
+            2
+        )
 
         cv2.imshow(
             "Sticks Finger Counting",
