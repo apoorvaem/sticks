@@ -25,6 +25,12 @@ def count_fingers(hand, side):
 
     return count
 
+def game_value(count):
+    if count == 5:
+        return 0
+
+    return count
+
 camera = cv2.VideoCapture(0)
 
 if not camera.isOpened():
@@ -101,7 +107,7 @@ with hands_module.Hands(
                         left_stable = 1
 
                     if left_stable >= 5:
-                        left_count = count
+                        left_count = game_value(count)
 
                 else:
 
@@ -112,7 +118,7 @@ with hands_module.Hands(
                         right_stable = 1
 
                     if right_stable >= 5:
-                        right_count = count
+                        right_count = game_value(count)
 
                 hand_values[side] = (
                     left_count
